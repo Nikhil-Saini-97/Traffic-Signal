@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🚦 Traffic Signal with Timer</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: linear-gradient(145deg, #2b3a4b 0%, #1d2a36 100%);
+      padding: 1rem;
+    }
+
+    /* main card – simple and clean */
+    .signal-card {
+      background: #1e2a36;
+      padding: 2rem 2.5rem 2.5rem 2.5rem;
+      border-radius: 4rem 4rem 3rem 3rem;
+      box-shadow: 0 20px 35px rgba(0, 0, 0, 0.7), inset 0 1px 3px rgba(255, 255, 255, 0.08);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      border: 1px solid #3f5365;
+    }
+
+    /* traffic light housing */
+    .traffic-light {
+      background: #1f2b36;
+      padding: 1.8rem 1.2rem;
+      border-radius: 3.5rem;
+      box-shadow: inset 0 8px 12px rgba(0,0,0,0.6), 0 4px 8px rgba(0,0,0,0.3);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1.2rem;
+      border: 1px solid #3f5567;
+    }
+
+    /* each light circle */
+    .light {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: #2d3d4b;
+      box-shadow: inset 0 -6px 6px rgba(0,0,0,0.6), 0 2px 4px rgba(0,0,0,0.4);
+      transition: background 0.25s ease, box-shadow 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* glowing effect when active */
+    .light.active-red {
+      background: #ff2f2f;
+      box-shadow: 0 0 22px #ff3b3b, inset 0 -4px 6px #a00;
+    }
+    .light.active-yellow {
+      background: #f7d44a;
+      box-shadow: 0 0 22px #f7d44a, inset 0 -4px 6px #b38f1a;
+    }
+    .light.active-green {
+      background: #3fdf5e;
+      box-shadow: 0 0 22px #3fdf5e, inset 0 -4px 6px #1d7a2a;
+    }
+
+    /* timer display – big and simple */
+    .timer-box {
+      margin-top: 1.6rem;
+      background: #0f171f;
+      padding: 0.6rem 1.4rem;
+      border-radius: 3rem;
+      box-shadow: inset 0 4px 8px rgba(0,0,0,0.7), 0 2px 4px rgba(255,255,255,0.05);
+      border: 1px solid #3d5365;
+      width: 100%;
+      text-align: center;
+    }
+
+    #timerDisplay {
+      font-size: 3.6rem;
+      font-weight: 600;
+      letter-spacing: 2px;
+      color: #d4edff;
+      text-shadow: 0 0 12px rgba(100, 200, 255, 0.3);
+      font-variant-numeric: tabular-nums;
+      line-height: 1.2;
+    }
+
+    /* small state label */
+    .state-label {
+      margin-top: 0.5rem;
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: #a0bbd0;
+      background: #16212b;
+      padding: 0.25rem 1.2rem;
+      border-radius: 30px;
+      border: 1px solid #3a5062;
+      box-shadow: inset 0 1px 4px rgba(0,0,0,0.4);
+    }
+
+    /* footer / extra info */
+    .signal-footer {
+      margin-top: 1.2rem;
+      color: #617b8d;
+      font-size: 0.8rem;
+      letter-spacing: 1px;
+      border-top: 1px solid #314654;
+      padding-top: 1rem;
+      width: 100%;
+      text-align: center;
+    }
+
+    /* small responsive */
+    @media (max-width: 480px) {
+      .signal-card { padding: 1.5rem 1.2rem; }
+      .light { width: 65px; height: 65px; }
+      #timerDisplay { font-size: 2.8rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="signal-card">
+    <!-- traffic light -->
+    <div class="traffic-light">
+      <div id="redLight" class="light"></div>
+      <div id="yellowLight" class="light"></div>
+      <div id="greenLight" class="light"></div>
+    </div>
+
+    <!-- timer display -->
+    <div class="timer-box">
+      <div id="timerDisplay">00</div>
+    </div>
+
+    <!-- state label (optional) -->
+    <div id="stateLabel" class="state-label">● STOP</div>
+    <div class="signal-footer">🚦 simple · timed signal</div>
+  </div>
+
+  <script>
+    (function() {
+      // DOM references
+      const redLight = document.getElementById('redLight');
+      const yellowLight = document.getElementById('yellowLight');
+      const greenLight = document.getElementById('greenLight');
+      const timerDisplay = document.getElementById('timerDisplay');
+      const stateLabel = document.getElementById('stateLabel');
+
+      // ---------- configuration ----------
+      const TIMINGS = {
+        RED: 8,        // seconds
+        YELLOW: 3,
+        GREEN: 6
+      };
+
+      // ---------- state ----------
+      let currentState = 'RED';      // 'RED', 'YELLOW', 'GREEN'
+      let timeLeft = TIMINGS.RED;
+      let intervalId = null;
+
+      // ---------- helper: update UI (lights + timer + label) ----------
+      function updateDisplay() {
+        // clear all active classes
+        redLight.classList.remove('active-red');
+        yellowLight.classList.remove('active-yellow');
+        greenLight.classList.remove('active-green');
+
+        // set active light + label + timer color (optional)
+        switch (currentState) {
+          case 'RED':
+            redLight.classList.add('active-red');
+            stateLabel.textContent = '🔴 STOP';
+            break;
+          case 'YELLOW':
+            yellowLight.classList.add('active-yellow');
+            stateLabel.textContent = '⚠️  WAIT';
+            break;
+          case 'GREEN':
+            greenLight.classList.add('active-green');
+            stateLabel.textContent = '🟢 GO';
+            break;
+          default: break;
+        }
+
+        // update timer (always show two digits)
+        timerDisplay.textContent = String(timeLeft).padStart(2, '0');
+      }
+
+      // ---------- move to next state ----------
+      function goToNextState() {
+        // determine next state and reset timer
+        if (currentState === 'RED') {
+          currentState = 'GREEN';
+          timeLeft = TIMINGS.GREEN;
+        } else if (currentState === 'GREEN') {
+          currentState = 'YELLOW';
+          timeLeft = TIMINGS.YELLOW;
+        } else if (currentState === 'YELLOW') {
+          currentState = 'RED';
+          timeLeft = TIMINGS.RED;
+        }
+        // update UI immediately
+        updateDisplay();
+      }
+
+      // ---------- tick: called every second ----------
+      function tick() {
+        // decrease time
+        timeLeft -= 1;
+
+        // if time reached zero, move to next state (and reset timer inside)
+        if (timeLeft <= 0) {
+          goToNextState();
+        } else {
+          // just update timer display (lights stay the same)
+          timerDisplay.textContent = String(timeLeft).padStart(2, '0');
+          // also ensure the label & lights are consistent (no change needed but call to be safe)
+          // but we can just update the timer; lights already correct.
+          // however we want to reflect any possible state change from goToNextState 
+          // but goToNextState calls updateDisplay, so we are fine.
+          // but if timeLeft > 0 we only need to update the timer number.
+          // we also refresh label just in case (but state didn't change)
+          // we call updateDisplay to keep everything in sync (it's cheap)
+          // but we must avoid resetting the timer, so we use a flag.
+          // we'll just update the timer element and ensure label matches state
+          // (because state didn't change)
+          // but we also need to keep lights consistent: they are already correct.
+          // I'll just call updateDisplay which sets lights and label but DOES NOT reset timeLeft.
+          // but updateDisplay uses currentState and timeLeft, so it's fine.
+          updateDisplay(); 
+          // BUT updateDisplay sets timerDisplay.textContent = timeLeft padded, so it's consistent.
+        }
+      }
+
+      // ---------- start the signal cycle ----------
+      function startSignal() {
+        // clear any previous interval
+        if (intervalId) {
+          clearInterval(intervalId);
+          intervalId = null;
+        }
+
+        // set initial state: RED with full time
+        currentState = 'RED';
+        timeLeft = TIMINGS.RED;
+        updateDisplay();
+
+        // start interval (every 1000ms)
+        intervalId = setInterval(tick, 1000);
+      }
+
+      // ---------- (optional) stop / reset ----------
+      // not needed for demo, but we include a clean way to stop if needed
+      function stopSignal() {
+        if (intervalId) {
+          clearInterval(intervalId);
+          intervalId = null;
+        }
+      }
+
+      // ---------- initialization ----------
+      startSignal();
+
+      // (optional) cleanup on page unload (good practice)
+      window.addEventListener('beforeunload', function() {
+        stopSignal();
+      });
+
+      // extra: if user clicks anywhere or something, we keep running.
+      // but we also add a small manual reset if double click (just for fun)
+      // double-click on timer resets the whole cycle to RED (for demo)
+      timerDisplay.addEventListener('dblclick', function() {
+        stopSignal();
+        currentState = 'RED';
+        timeLeft = TIMINGS.RED;
+        updateDisplay();
+        startSignal(); // restart
+      });
+
+      // also if user double clicks the card, reset (convenience)
+      document.querySelector('.signal-card').addEventListener('dblclick', function(e) {
+        // avoid triggering twice if inside timer
+        if (e.target === timerDisplay) return;
+        stopSignal();
+        currentState = 'RED';
+        timeLeft = TIMINGS.RED;
+        updateDisplay();
+        startSignal();
+      });
+
+    })();
+  </script>
+</body>
+</html>
